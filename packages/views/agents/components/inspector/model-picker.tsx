@@ -165,10 +165,24 @@ export function ModelPicker({
           </PickerItem>
         ))}
 
-      {!modelsQuery.isLoading && !modelsQuery.isError && filtered.length === 0 && !canCreate && (
+      {!modelsQuery.isLoading && !modelsQuery.isError && runtimeOnline && filtered.length === 0 && !canCreate && (
         <p className="px-3 py-3 text-center text-xs text-muted-foreground">
           {t(($) => $.pickers.model_empty)}
         </p>
+      )}
+
+      {!runtimeOnline && (
+        <div className="flex flex-col gap-2 p-3 text-xs border-t border-border bg-muted/30 text-muted-foreground">
+          <p className="font-semibold text-foreground">{t(($) => $.model_dropdown.runtime_offline_manual)}</p>
+          <div className="mt-1 border-t border-border pt-2 text-[10px] text-muted-foreground">
+            <div className="font-medium mb-1 text-foreground">{t(($) => $.pickers.model_troubleshoot_title)}</div>
+            <ul className="list-none space-y-1 pl-0">
+              <li>{t(($) => $.pickers.model_troubleshoot_step1)}</li>
+              <li>{t(($) => $.pickers.model_troubleshoot_step2)}</li>
+              <li>{t(($) => $.pickers.model_troubleshoot_step3)}</li>
+            </ul>
+          </div>
+        </div>
       )}
 
       {modelsQuery.isError && (
