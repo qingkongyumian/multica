@@ -240,6 +240,9 @@ export function ModelPicker({
           {t(($) => $.pickers.model_clear)}
         </button>
       )}
+      <div className="px-3 py-1 text-[9px] text-muted-foreground/60 border-t border-border/50 bg-muted/10 text-center">
+        v0.2.0-marvis (Custom Debug)
+      </div>
     </PropertyPicker>
   );
 }
