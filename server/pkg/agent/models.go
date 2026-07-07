@@ -1076,13 +1076,19 @@ func discoverAntigravityModels(ctx context.Context, executablePath string) ([]Mo
 	}
 	// `agy models` is a local enumeration (no network round-trip), so a
 	// short cap is plenty; keep it generous enough to absorb cold starts.
-	runCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	runCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(runCtx, executablePath, "models")
 	hideAgentWindow(cmd)
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
 	out, err := cmd.Output()
-	if err != nil && len(out) == 0 {
-		return nil, nil
+	if err != nil {
+		errMsg := err.Error()
+		if stderr.Len() > 0 {
+			errMsg = fmt.Sprintf("%v: %s", err, strings.TrimSpace(stderr.String()))
+		}
+		return nil, fmt.Errorf("agy models failed: %s", errMsg)
 	}
 	return parseAntigravityModels(string(out)), nil
 }
