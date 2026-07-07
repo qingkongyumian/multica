@@ -47,20 +47,20 @@ jobs:
         id: tags
         run: |
           OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          TAG="${{ id.tag || steps.sanitize.outputs.tag }}"
+          TAG="${{ steps.sanitize.outputs.tag }}"
           
-          # Add GHCR tag
-          TAGS="ghcr.io/${OWNER_LOWER}/multica-backend:${TAG}"
+          # Map main branch to latest, other branches to their sanitized branch name
+          VERSION_TAG="${TAG}"
           if [ "${TAG}" = "main" ]; then
-            TAGS="${TAGS},ghcr.io/${OWNER_LOWER}/multica-backend:latest"
+            VERSION_TAG="latest"
           fi
           
-          # Add Docker Hub tag if credentials are set
+          # GHCR tags
+          TAGS="ghcr.io/${OWNER_LOWER}/multica-backend:${VERSION_TAG}"
+          
+          # Docker Hub tags (only if Docker Hub secrets are configured)
           if [ -n "${{ env.DOCKERHUB_USER }}" ]; then
-            TAGS="${TAGS},${{ secrets.DOCKERHUB_USERNAME }}/multica-backend:${TAG}"
-            if [ "${TAG}" = "main" ]; then
-              TAGS="${TAGS},${{ secrets.DOCKERHUB_USERNAME }}/multica-backend:latest"
-            fi
+            TAGS="${TAGS},${{ secrets.DOCKERHUB_USERNAME }}/multica-backend:${VERSION_TAG}"
           fi
           
           echo "backend_tags=${TAGS}" >> "$GITHUB_OUTPUT"
@@ -107,20 +107,20 @@ jobs:
         id: tags
         run: |
           OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          TAG="${{ id.tag || steps.sanitize.outputs.tag }}"
+          TAG="${{ steps.sanitize.outputs.tag }}"
           
-          # Add GHCR tag
-          TAGS="ghcr.io/${OWNER_LOWER}/multica-web:${TAG}"
+          # Map main branch to latest, other branches to their sanitized branch name
+          VERSION_TAG="${TAG}"
           if [ "${TAG}" = "main" ]; then
-            TAGS="${TAGS},ghcr.io/${OWNER_LOWER}/multica-web:latest"
+            VERSION_TAG="latest"
           fi
           
-          # Add Docker Hub tag if credentials are set
+          # GHCR tags
+          TAGS="ghcr.io/${OWNER_LOWER}/multica-web:${VERSION_TAG}"
+          
+          # Docker Hub tags (only if Docker Hub secrets are configured)
           if [ -n "${{ env.DOCKERHUB_USER }}" ]; then
-            TAGS="${TAGS},${{ secrets.DOCKERHUB_USERNAME }}/multica-web:${TAG}"
-            if [ "${TAG}" = "main" ]; then
-              TAGS="${TAGS},${{ secrets.DOCKERHUB_USERNAME }}/multica-web:latest"
-            fi
+            TAGS="${TAGS},${{ secrets.DOCKERHUB_USERNAME }}/multica-web:${VERSION_TAG}"
           fi
           
           echo "frontend_tags=${TAGS}" >> "$GITHUB_OUTPUT"
