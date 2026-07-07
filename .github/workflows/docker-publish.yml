@@ -4,21 +4,66 @@ on:
   push:
     branches:
       - main
-      - feat/marvis-integration # 当您推送到这个定制分支时触发
-  workflow_dispatch: # 允许手动点击按钮触发
+      - feat/marvis-integration # Triggers when pushed to this branch
+  workflow_dispatch: # Allows manual trigger from the Actions tab
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build-and-push-backend:
     runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_PASS: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Log in to Docker Hub
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub (Optional)
+        if: env.DOCKERHUB_USER != '' && env.DOCKERHUB_PASS != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Sanitize branch name for Docker tag
+        id: sanitize
+        run: |
+          REF_NAME="${{ github.ref_name }}"
+          # Replace invalid characters (like '/') with '-' and convert to lowercase
+          TAG_NAME=$(echo "$REF_NAME" | sed 's/[^a-zA-Z0-9_.-]/-/g' | tr '[:upper:]' '[:lower:]')
+          echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Image Tags
+        id: tags
+        run: |
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          TAG="${{ id.tag || steps.sanitize.outputs.tag }}"
+          
+          # Add GHCR tag
+          TAGS="ghcr.io/${OWNER_LOWER}/multica-backend:${TAG}"
+          if [ "${TAG}" = "main" ]; then
+            TAGS="${TAGS},ghcr.io/${OWNER_LOWER}/multica-backend:latest"
+          fi
+          
+          # Add Docker Hub tag if credentials are set
+          if [ -n "${{ env.DOCKERHUB_USER }}" ]; then
+            TAGS="${TAGS},${{ secrets.DOCKERHUB_USERNAME }}/multica-backend:${TAG}"
+            if [ "${TAG}" = "main" ]; then
+              TAGS="${TAGS},${{ secrets.DOCKERHUB_USERNAME }}/multica-backend:latest"
+            fi
+          fi
+          
+          echo "backend_tags=${TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Build and Push Backend Image
         uses: docker/build-push-action@v5
@@ -26,20 +71,59 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          # 修改为您自己的 Docker 镜像名，例如 username/multica-backend
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/multica-backend:latest
+          tags: ${{ steps.tags.outputs.backend_tags }}
 
   build-and-push-frontend:
     runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_PASS: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Log in to Docker Hub
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub (Optional)
+        if: env.DOCKERHUB_USER != '' && env.DOCKERHUB_PASS != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Sanitize branch name for Docker tag
+        id: sanitize
+        run: |
+          REF_NAME="${{ github.ref_name }}"
+          TAG_NAME=$(echo "$REF_NAME" | sed 's/[^a-zA-Z0-9_.-]/-/g' | tr '[:upper:]' '[:lower:]')
+          echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Image Tags
+        id: tags
+        run: |
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          TAG="${{ id.tag || steps.sanitize.outputs.tag }}"
+          
+          # Add GHCR tag
+          TAGS="ghcr.io/${OWNER_LOWER}/multica-web:${TAG}"
+          if [ "${TAG}" = "main" ]; then
+            TAGS="${TAGS},ghcr.io/${OWNER_LOWER}/multica-web:latest"
+          fi
+          
+          # Add Docker Hub tag if credentials are set
+          if [ -n "${{ env.DOCKERHUB_USER }}" ]; then
+            TAGS="${TAGS},${{ secrets.DOCKERHUB_USERNAME }}/multica-web:${TAG}"
+            if [ "${TAG}" = "main" ]; then
+              TAGS="${TAGS},${{ secrets.DOCKERHUB_USERNAME }}/multica-web:latest"
+            fi
+          fi
+          
+          echo "frontend_tags=${TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Build and Push Frontend Image
         uses: docker/build-push-action@v5
@@ -47,4 +131,4 @@ jobs:
           context: .
           file: ./Dockerfile.web
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/multica-web:latest
+          tags: ${{ steps.tags.outputs.frontend_tags }}
